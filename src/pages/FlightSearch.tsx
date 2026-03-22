@@ -8,6 +8,8 @@ import {toast} from 'sonner';
 export default function FlightSearch() {
     const [flights, setFlights] = useState([]);
 
+    const [page, setPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
     const [departure, setDeparture] = useState('');
     const [destination, setDestination] = useState('');
     const [date, setDate] = useState('');
@@ -15,9 +17,16 @@ export default function FlightSearch() {
     const [airline, setAirline] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
     const [availableOnly, setAvailableOnly] = useState(false);
+    const [checkoutFlightId, setCheckoutFlightId] = useState<number | null>(null);
+    const [paymentDetails, setPaymentDetails] = useState({
+        name: 'Felix Huber',
+        card: '4500123456789012',
+        expiry: '12/28',
+        cvv: '123'
+    });
 
-    const searchFlights = async () => {
-        const params: any = {};
+    const searchFlights = async (targetPage = 0) => {
+        const params: any = {page: targetPage, size: 6};
         if (departure) params.departure = departure;
         if (destination) params.destination = destination;
         if (date) params.date = date;
@@ -28,30 +37,59 @@ export default function FlightSearch() {
 
         try {
             const res = await api.get(`/flights`, {params});
-            setFlights(res.data);
+
+            const calculatedPages = res.data.totalPages !== undefined
+                ? res.data.totalPages
+                : (res.data.totalSize ? Math.ceil(res.data.totalSize / 6) : 0);
+
+            setFlights(res.data.content || []);
+            setTotalPages(calculatedPages);
+            setPage(targetPage);
+
         } catch (e) {
             toast.error("Fehler beim Laden der Flüge.");
             console.error(e);
         }
     };
 
-    const bookFlight = async (flightId: number) => {
+    const handleFilterClick = () => {
+        searchFlights(0);
+    };
+
+    const initiateCheckout = (flightId: number) => {
         const username = localStorage.getItem('username');
         if (!username) {
             toast.warning("Bitte loggen Sie sich ein, um zu buchen.");
             return;
         }
+        setCheckoutFlightId(flightId);
+    };
+
+    const confirmBooking = async () => {
+        const username = localStorage.getItem('username');
+        if (!paymentDetails.name || !paymentDetails.card || !paymentDetails.expiry || !paymentDetails.cvv) {
+            toast.error("Bitte füllen Sie alle Zahlungsdetails aus.");
+            return;
+        }
+
         try {
-            await api.post('/bookings', {flightId, username});
-            toast.success("Flug erfolgreich gebucht!");
-            searchFlights();
+            await api.post('/bookings', {flightId: checkoutFlightId, username});
+            toast.success("Zahlung erfolgreich! Flug gebucht.");
+            setCheckoutFlightId(null);
+            setPaymentDetails({
+                name: 'Felix Huber',
+                card: '4500123456789012',
+                expiry: '12/28',
+                cvv: '123'
+            });
+            searchFlights(page);
         } catch (e: any) {
-            toast.error(e.response?.data?.message || e.response?.data || "Buchung fehlgeschlagen.");
+            toast.error(e.response?.data?.message || "Buchung fehlgeschlagen.");
         }
     };
 
     useEffect(() => {
-        searchFlights();
+        searchFlights(0);
     }, []);
 
     return (
@@ -112,7 +150,7 @@ export default function FlightSearch() {
                             />
                             <span className="font-medium text-zinc-200">Nur verfügbare Tickets anzeigen</span>
                         </label>
-                        <Button onClick={searchFlights}
+                        <Button onClick={handleFilterClick}
                                 className="px-10 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-lg">
                             Flüge filtern
                         </Button>
@@ -173,9 +211,9 @@ export default function FlightSearch() {
                             <Button
                                 className={`w-full h-11 text-base rounded-xl transition-colors ${f.availableTickets > 0 ? "bg-zinc-100 hover:bg-zinc-200 text-zinc-950" : "bg-zinc-800 text-zinc-600"}`}
                                 disabled={f.availableTickets <= 0}
-                                onClick={() => bookFlight(f.id)}
+                                onClick={() => initiateCheckout(f.id)}
                             >
-                                {f.availableTickets > 0 ? "Direkt buchen" : "Ausgebucht"}
+                                {f.availableTickets > 0 ? "Buchen" : "Ausgebucht"}
                             </Button>
                         </CardContent>
                     </Card>
@@ -192,6 +230,80 @@ export default function FlightSearch() {
                     </div>
                 )}
             </section>
+
+            {/* NEU: Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-10 p-4">
+                    <Button
+                        disabled={page === 0}
+                        onClick={() => searchFlights(page - 1)}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white"
+                    >
+                        ← Zurück
+                    </Button>
+                    <span className="text-zinc-400 font-medium">
+                        Seite {page + 1} von {totalPages}
+                    </span>
+                    <Button
+                        disabled={page >= totalPages - 1}
+                        onClick={() => searchFlights(page + 1)}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white"
+                    >
+                        Weiter →
+                    </Button>
+                </div>
+            )}
+
+            {/* Checkout Modal */}
+            {checkoutFlightId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+                    <div className="bg-zinc-950 p-8 rounded-2xl border border-zinc-800 max-w-md w-full space-y-6">
+                        <h2 className="text-2xl font-bold text-white">Sicherer Checkout</h2>
+                        <p className="text-zinc-400 text-sm">Bitte geben Sie Ihre Zahlungsdaten ein, um die Buchung
+                            abzuschließen.</p>
+
+                        <div className="space-y-4">
+                            <Input
+                                placeholder="Name auf der Karte"
+                                value={paymentDetails.name}
+                                onChange={e => setPaymentDetails({...paymentDetails, name: e.target.value})}
+                                className="bg-zinc-900 border-zinc-800 text-white"
+                            />
+                            <Input
+                                placeholder="Kartennummer"
+                                maxLength={16}
+                                value={paymentDetails.card}
+                                onChange={e => setPaymentDetails({...paymentDetails, card: e.target.value})}
+                                className="bg-zinc-900 border-zinc-800 text-white"
+                            />
+                            <div className="flex gap-4">
+                                <Input
+                                    placeholder="MM/YY"
+                                    maxLength={5}
+                                    value={paymentDetails.expiry}
+                                    onChange={e => setPaymentDetails({...paymentDetails, expiry: e.target.value})}
+                                    className="bg-zinc-900 border-zinc-800 text-white"
+                                />
+                                <Input
+                                    placeholder="CVV"
+                                    maxLength={3}
+                                    type="password"
+                                    value={paymentDetails.cvv}
+                                    onChange={e => setPaymentDetails({...paymentDetails, cvv: e.target.value})}
+                                    className="bg-zinc-900 border-zinc-800 text-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4 justify-end pt-4">
+                            <Button variant="ghost" onClick={() => setCheckoutFlightId(null)}
+                                    className="text-zinc-400">Abbrechen</Button>
+                            <Button onClick={confirmBooking} className="bg-zinc-100 text-zinc-950 hover:bg-zinc-200">Kostenpflichtig
+                                buchen</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

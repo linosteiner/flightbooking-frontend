@@ -2,19 +2,25 @@ import {useState} from 'react';
 import {api} from '../lib/api';
 import {Button} from '../components/ui/button';
 import {Input} from '../components/ui/input';
-import {useNavigate} from 'react-router-dom';
 
 export default function Login() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const navigate = useNavigate();
 
     const handleLogin = async () => {
         try {
             const res = await api.post('/login', {username, password});
-            localStorage.setItem('token', res.data.access_token);
+            const token = res.data.access_token || res.data.accessToken;
+
+            if (!token) {
+                console.error("Login-Response:", res.data);
+                alert("Fehler: Kein Token vom Server erhalten.");
+                return;
+            }
+
+            localStorage.setItem('token', token);
             localStorage.setItem('username', username);
-            navigate('/');
+            window.location.href = '/';
         } catch (e) {
             alert("Login fehlgeschlagen");
         }
