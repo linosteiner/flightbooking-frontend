@@ -1,121 +1,62 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import {BrowserRouter, Link, Navigate, Route, Routes} from 'react-router-dom';
+import FlightSearch from './pages/FlightSearch';
+import BookingHistory from './pages/BookingHistory';
+import Login from './pages/Login';
+import {Button} from './components/ui/button';
+import {Toaster} from "sonner";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+    const isLoggedIn = !!localStorage.getItem('token');
+    const username = localStorage.getItem('username');
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        window.location.href = '/login';
+    };
 
-      <div className="ticks"></div>
+    return (
+        <BrowserRouter>
+            <nav className="p-4 bg-zinc-950 border-b border-zinc-800 text-white flex gap-6 items-center shadow-md">
+                <Link to="/" className="font-bold text-xl tracking-wide text-zinc-100">✈️ FlyApp</Link>
+                <Link to="/" className="hover:text-zinc-300 transition-colors text-zinc-400">Suchen</Link>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+                {isLoggedIn && (
+                    <Link to="/history" className="hover:text-zinc-300 transition-colors text-zinc-400">Meine
+                        Buchungen</Link>
+                )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+                <div className="ml-auto flex items-center gap-4">
+                    {isLoggedIn ? (
+                        <>
+                            <span className="text-sm text-zinc-400">Hallo, {username}</span>
+                            <Button variant="secondary" size="sm" onClick={handleLogout}
+                                    className="bg-zinc-800 hover:bg-zinc-700 text-white border-none">Logout</Button>
+                        </>
+                    ) : (
+                        <Link to="/login">
+                            <Button variant="secondary" size="sm"
+                                    className="bg-zinc-100 hover:bg-zinc-200 text-zinc-950">Login</Button>
+                        </Link>
+                    )}
+                </div>
+            </nav>
+
+            <main className="min-h-screen bg-zinc-950">
+                <div className="container mx-auto max-w-7xl">
+                    <Routes>
+                        <Route path="/" element={<FlightSearch/>}/>
+                        <Route path="/login" element={<Login/>}/>
+
+                        <Route
+                            path="/history"
+                            element={isLoggedIn ? <BookingHistory/> : <Navigate to="/login" replace/>}
+                        />
+                    </Routes>
+                </div>
+            </main>
+
+            <Toaster theme="dark" position="bottom-right"/>
+        </BrowserRouter>
+    );
 }
-
-export default App
